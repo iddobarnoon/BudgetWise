@@ -1,0 +1,14 @@
+
+==================================================
+Running Ranking System Tests
+==================================================
+
+✓ Merchant normalization tests passed
+✓ Confidence calculation tests passed
+✓ Amount extraction tests passed
+✓ Matching logic tests passed
+
+==================================================
+✅ All tests passed!
+==================================================
+
