@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 from decimal import Decimal
 import sys
@@ -40,7 +40,7 @@ class CheckPurchaseResponse(BaseModel):
     remaining_in_category: Decimal
     percentage_of_category: float
     alternative_options: List[str]
-    warning: str = None
+    warning: Optional[str] = None
 
 class UpdateSpentRequest(BaseModel):
     user_id: str
@@ -56,6 +56,11 @@ async def create_budget(request: CreateBudgetRequest):
     Generate monthly budget using categories from database
     """
     try:
+        # Check if budget already exists
+        existing_budget = supabase.table('budgets').select('*').eq('user_id', request.user_id).eq('month', request.month).execute()
+        if existing_budget.data:
+            raise HTTPException(status_code=400, detail=f"Budget for {request.month} already exists. Use update endpoint instead.")
+
         # Get all categories
         categories_result = supabase.table('categories').select('*').order('necessity_score', desc=True).execute()
         categories = categories_result.data
@@ -69,10 +74,11 @@ async def create_budget(request: CreateBudgetRequest):
         wants_budget = income * 0.30
         savings_budget = income * 0.20
 
-        # Categorize
-        needs = [c for c in categories if c['necessity_score'] >= 8]
-        wants = [c for c in categories if 4 <= c['necessity_score'] < 8]
-        savings = [c for c in categories if c['name'] in ['Savings']]
+        # Categorize (ensure no duplicates)
+        savings_names = ['Savings', 'Emergency Fund', 'Investments']
+        savings_cats = [c for c in categories if c['name'] in savings_names]
+        needs = [c for c in categories if c['necessity_score'] >= 8 and c['name'] not in savings_names]
+        wants = [c for c in categories if 4 <= c['necessity_score'] < 8 and c['name'] not in savings_names]
 
         # Create budget record
         budget_data = {
@@ -91,36 +97,34 @@ async def create_budget(request: CreateBudgetRequest):
         if needs:
             per_need = needs_budget / len(needs)
             for cat in needs:
-                alloc = {
+                allocations.append({
                     "budget_id": budget['id'],
                     "category_id": cat['id'],
-                    "allocated_amount": str(per_need),
+                    "allocated_amount": str(round(per_need, 2)),
                     "spent_amount": "0"
-                }
-                allocations.append(alloc)
+                })
 
         # Distribute wants budget
         if wants:
             per_want = wants_budget / len(wants)
             for cat in wants:
-                alloc = {
+                allocations.append({
                     "budget_id": budget['id'],
                     "category_id": cat['id'],
-                    "allocated_amount": str(per_want),
+                    "allocated_amount": str(round(per_want, 2)),
                     "spent_amount": "0"
-                }
-                allocations.append(alloc)
+                })
 
         # Savings
-        if savings:
-            for cat in savings:
-                alloc = {
+        if savings_cats:
+            per_savings = savings_budget / len(savings_cats)
+            for cat in savings_cats:
+                allocations.append({
                     "budget_id": budget['id'],
                     "category_id": cat['id'],
-                    "allocated_amount": str(savings_budget),
+                    "allocated_amount": str(round(per_savings, 2)),
                     "spent_amount": "0"
-                }
-                allocations.append(alloc)
+                })
 
         # Insert allocations
         if allocations:
@@ -137,6 +141,8 @@ async def create_budget(request: CreateBudgetRequest):
             "goals": request.goals
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
