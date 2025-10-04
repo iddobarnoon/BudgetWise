@@ -1,0 +1,115 @@
+
+============================================================
+BUDGET ENGINE - COMPREHENSIVE TEST SUITE
+============================================================
+
+============================================================
+TEST 1: Budget Allocation Calculation
+============================================================
+✓ Income: $5000
+✓ Housing (30%): $1500
+✓ Allocation calculation correct!
+
+✅ Allocation Calculation - PASSED
+
+============================================================
+TEST 2: 50/30/20 Budget Rule
+============================================================
+✓ Income: $5000
+✓ Needs (50%): $2500.00
+✓ Wants (30%): $1500.00
+✓ Savings (20%): $1000.00
+✓ Total: $5000.00 = $5000 ✓
+
+✅ 50/30/20 Budget Rule - PASSED
+
+============================================================
+TEST 3: Purchase Validation
+============================================================
+✓ Allocated: $500
+✓ Spent: $350
+✓ Remaining: $150
+✓ Purchase $100: APPROVED
+✓ Purchase $200: DENIED
+
+✅ Purchase Validation - PASSED
+
+============================================================
+TEST 4: Percentage Calculation
+============================================================
+✓ $250 of $1000 = 25.0%
+✓ $500 of $1000 = 50.0%
+✓ $750 of $1000 = 75.0%
+✓ $1000 of $1000 = 100.0%
+
+✅ Percentage Calculation - PASSED
+
+============================================================
+TEST 5: Budget Summary
+============================================================
+✓ Total Budget: $2400
+✓ Total Spent: $2300
+✓ Total Remaining: $100
+✓ Overspent Categories: ['cat_dining']
+
+✅ Budget Summary - PASSED
+
+============================================================
+TEST 6: Reallocation Suggestions
+============================================================
+✓ Entertainment: $100/$500 ($400 remaining)
+✓ Dining: $450/$300 ($150 over)
+✓ Suggestion: Reallocate $150 from Entertainment to Dining
+
+✅ Reallocation Suggestions - PASSED
+
+============================================================
+TEST 7: Goal-Based Allocation
+============================================================
+✓ Goal: 'Save for emergency fund'
+✓ Savings: $500 → $750.0 (+$250.0)
+✓ Entertainment: $400 → $280.0 (-$120.0)
+✓ Net change: $130.0
+
+✅ Goal-Based Allocation - PASSED
+
+============================================================
+TEST 8: Overspent Detection
+============================================================
+✓ Housing: $1500/$1500 [OK]
+✓ Groceries: $450/$600 [OK]
+✓ Dining: $400/$300 [OVER]
+✓ Transportation: $500/$400 [OVER]
+✓ Overspent categories: ['Dining', 'Transportation']
+
+✅ Overspent Detection - PASSED
+
+============================================================
+TEST 9: Income Rebalancing
+============================================================
+✓ Income: $5000
+✓ Initial total allocations: $5800
+✓ Rebalancing ratio: 0.8620689655172413793103448276
+✓ Rebalanced total: $5000.000000000000000000000000
+✓ Successfully fit within income!
+
+✅ Income Rebalancing - PASSED
+
+============================================================
+TEST 10: Spending Pattern Analysis
+============================================================
+✓ Groceries: 3 expenses, avg $176.67
+✓ Dining: 2 expenses, avg $62.50
+
+✅ Spending Pattern Analysis - PASSED
+
+============================================================
+TEST SUMMARY
+============================================================
+Total Tests: 10
+✅ Passed: 10
+❌ Failed: 0
+============================================================
+
+🎉 ALL TESTS PASSED! 🎉
+

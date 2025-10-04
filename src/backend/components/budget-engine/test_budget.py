@@ -298,11 +298,16 @@ class TestBudgetEngine:
             avg = patterns[cat]["total"] / patterns[cat]["count"]
             patterns[cat]["average"] = avg
 
-        assert patterns["Groceries"]["average"] == Decimal("176.67").quantize(Decimal("0.01"))
+        groceries_avg = (Decimal("150") + Decimal("200") + Decimal("180")) / 3
+        dining_avg = (Decimal("50") + Decimal("75")) / 2
+
+        assert patterns["Groceries"]["average"] == groceries_avg
+        assert patterns["Groceries"]["count"] == 3
+        assert patterns["Dining"]["average"] == dining_avg
         assert patterns["Dining"]["count"] == 2
 
-        print(f"✓ Groceries: {patterns['Groceries']['count']} expenses, avg ${patterns['Groceries']['average']}")
-        print(f"✓ Dining: {patterns['Dining']['count']} expenses, avg ${patterns['Dining']['average']}")
+        print(f"✓ Groceries: {patterns['Groceries']['count']} expenses, avg ${patterns['Groceries']['average']:.2f}")
+        print(f"✓ Dining: {patterns['Dining']['count']} expenses, avg ${patterns['Dining']['average']:.2f}")
 
 
 def run_all_tests():
