@@ -6,7 +6,7 @@ from pathlib import Path
 # Add parent directories to path
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from .routes import router
+from routes import router
 
 app = FastAPI(
     title="BudgetWise Ranking System",

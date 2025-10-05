@@ -8,8 +8,8 @@ class SupabaseClient:
     """Wrapper for Supabase database operations"""
 
     def __init__(self):
-        url = os.getenv("SUPABASE_URL", "")
-        key = os.getenv("SUPABASE_KEY", "")
+        url = "https://mjwuxawseluajqduwuru.supabase.co"
+        key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qd3V4YXdzZWx1YWpxZHV3dXJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1OTI1NjAsImV4cCI6MjA3NTE2ODU2MH0.mrk7QZzso29zihyJ6oIjyxiigJGcapK2k4Vyy7cLhZ8"
         if not url or not key:
             raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set")
         self.client: Client = create_client(url, key)

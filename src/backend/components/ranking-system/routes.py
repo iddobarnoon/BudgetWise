@@ -3,7 +3,7 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 from decimal import Decimal
 
-from .main import ranking_service
+from main import ranking_service
 from shared.models import Category
 
 router = APIRouter(prefix="/ranking", tags=["ranking"])
