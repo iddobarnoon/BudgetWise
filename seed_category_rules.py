@@ -123,14 +123,9 @@ def seed_category_rules():
 
         rule_data = {
             'category_id': categories[category_name],
-<<<<<<< HEAD
             'merchant_patterns': rule['merchant_patterns'],
             'keywords': rule['keywords'],
             'priority': rule['priority']
-=======
-            'merchant_patterns': [rule['merchant_pattern']],  # Array field
-            'priority': rule['weight']  # Changed from 'weight' to 'priority'
->>>>>>> 956236fe0a03ce153a4af285ed7ee1f32703413f
         }
 
         try:
