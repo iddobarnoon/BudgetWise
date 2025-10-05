@@ -3,8 +3,10 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 from decimal import Decimal
 import os
+import numpy as np
 from supabase import create_client
 from dotenv import load_dotenv
+from openai import AsyncOpenAI
 
 load_dotenv()
 
@@ -12,6 +14,13 @@ router = APIRouter(prefix="/ranking", tags=["ranking"])
 
 # Initialize Supabase
 supabase = create_client(os.getenv('SUPABASE_URL'), os.getenv('SUPABASE_KEY'))
+
+# Initialize OpenAI for embeddings
+openai_client = AsyncOpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+EMBEDDING_MODEL = "text-embedding-3-small"
+
+# Category embeddings cache (to avoid repeated API calls)
+CATEGORY_EMBEDDINGS_CACHE: Dict[str, List[float]] = {}
 
 # Request/Response Models
 class ClassifyExpenseRequest(BaseModel):
@@ -80,50 +89,157 @@ async def get_category_rules(category_id: str) -> List[Dict]:
         return []
 
 
-async def match_merchant_to_category(merchant: str, user_id: str) -> tuple[Optional[str], float]:
-    """Match merchant to category using rules and user overrides"""
-    normalized = normalize_merchant(merchant)
+# ============= Semantic Matching Functions =============
 
-    # Check user overrides first
+async def get_embedding(text: str) -> List[float]:
+    """
+    Get embedding vector for text using OpenAI
+
+    Args:
+        text: Text to embed (merchant name, category name, etc.)
+
+    Returns:
+        List of floats representing the embedding vector
+    """
+    try:
+        response = await openai_client.embeddings.create(
+            model=EMBEDDING_MODEL,
+            input=text
+        )
+        return response.data[0].embedding
+    except Exception as e:
+        print(f"Error getting embedding for '{text}': {e}")
+        # Return zero vector as fallback
+        return [0.0] * 1536
+
+
+def cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
+    """
+    Compute cosine similarity between two vectors
+
+    Args:
+        vec1: First embedding vector
+        vec2: Second embedding vector
+
+    Returns:
+        Similarity score between 0 and 1
+    """
+    # Convert to numpy arrays
+    v1 = np.array(vec1)
+    v2 = np.array(vec2)
+
+    # Compute cosine similarity
+    dot_product = np.dot(v1, v2)
+    norm1 = np.linalg.norm(v1)
+    norm2 = np.linalg.norm(v2)
+
+    if norm1 == 0 or norm2 == 0:
+        return 0.0
+
+    similarity = dot_product / (norm1 * norm2)
+
+    # Ensure result is between 0 and 1
+    return max(0.0, min(1.0, float(similarity)))
+
+
+async def get_category_embeddings(categories: List[Dict]) -> Dict[str, List[float]]:
+    """
+    Get embeddings for all categories (with caching)
+
+    Args:
+        categories: List of category dicts with 'id' and 'name' fields
+
+    Returns:
+        Dict mapping category_id to embedding vector
+    """
+    global CATEGORY_EMBEDDINGS_CACHE
+
+    embeddings = {}
+
+    for category in categories:
+        category_id = category['id']
+        category_name = category['name']
+
+        # Check cache first
+        if category_id in CATEGORY_EMBEDDINGS_CACHE:
+            embeddings[category_id] = CATEGORY_EMBEDDINGS_CACHE[category_id]
+        else:
+            # Generate and cache embedding
+            embedding = await get_embedding(category_name)
+            CATEGORY_EMBEDDINGS_CACHE[category_id] = embedding
+            embeddings[category_id] = embedding
+
+    return embeddings
+
+
+async def match_merchant_to_category(merchant: str, user_id: str) -> tuple[Optional[str], float, List[Dict]]:
+    """
+    Match merchant to category using semantic embeddings
+    Returns: (category_id, confidence, debug_info)
+    """
+    normalized = normalize_merchant(merchant)
+    debug_info = []
+
+    # Check user overrides first (respect explicit user preferences)
     try:
         override_result = supabase.table('user_merchant_overrides').select('category_id').eq('user_id', user_id).eq('merchant_name', normalized).execute()
         if override_result.data:
-            return override_result.data[0]['category_id'], 0.99
+            debug_info.append({"type": "override", "matched": True, "category_id": override_result.data[0]['category_id']})
+            return override_result.data[0]['category_id'], 0.99, debug_info
     except Exception as e:
         print(f"Error checking overrides: {e}")
 
-    # Get all categories with their rules
+    # Get all categories
     categories_result = supabase.table('categories').select('id, name, necessity_score').execute()
     categories = categories_result.data
 
-    scores = []
+    if not categories:
+        return None, 0.0, [{"error": "No categories found"}]
+
+    # Get merchant embedding
+    merchant_embedding = await get_embedding(merchant)
+
+    # Get category embeddings (cached)
+    category_embeddings = await get_category_embeddings(categories)
+
+    # Compute semantic similarities
+    similarities = []
     for category in categories:
-        rules = await get_category_rules(category['id'])
-        category_score = 0
+        category_id = category['id']
+        category_embedding = category_embeddings.get(category_id)
 
-        for rule in rules:
-            # Simple keyword matching
-            if rule['merchant_pattern'].lower() in normalized:
-                category_score += rule['weight']
+        if not category_embedding:
+            continue
 
-        scores.append({
-            'category_id': category['id'],
+        # Calculate cosine similarity
+        similarity = cosine_similarity(merchant_embedding, category_embedding)
+
+        similarities.append({
+            'category_id': category_id,
             'category_name': category['name'],
             'necessity_score': category['necessity_score'],
-            'score': category_score
+            'similarity': similarity
         })
 
-    # Sort by score
-    scores.sort(key=lambda x: x['score'], reverse=True)
+    # Sort by similarity (highest first)
+    similarities.sort(key=lambda x: x['similarity'], reverse=True)
 
-    if not scores or scores[0]['score'] == 0:
-        return None, 0.0
+    if not similarities:
+        return None, 0.0, [{"error": "No similarities computed"}]
 
-    # Calculate confidence
-    score_values = [s['score'] for s in scores]
-    confidence = calculate_confidence(score_values)
+    # Get top match
+    top_match = similarities[0]
+    confidence = top_match['similarity']
 
-    return scores[0]['category_id'], confidence
+    # Build debug info with top 5 matches
+    for sim in similarities[:5]:
+        debug_info.append({
+            "category": sim['category_name'],
+            "similarity": round(sim['similarity'], 4),
+            "method": "semantic"
+        })
+
+    return top_match['category_id'], confidence, debug_info
 
 
 # Endpoints
@@ -155,46 +271,51 @@ async def get_categories(user_id: str) -> List[Dict[str, Any]]:
 
 
 @router.post("/classify")
-async def classify_expense(request: ClassifyExpenseRequest) -> ClassifyExpenseResponse:
+async def classify_expense(request: ClassifyExpenseRequest) -> Dict[str, Any]:
     """
-    Classify expense and return category with confidence
+    Classify expense and return category with confidence and debug info
     """
     try:
         merchant = request.merchant or request.description
-        category_id, confidence = await match_merchant_to_category(merchant, request.user_id)
+        category_id, confidence, debug_info = await match_merchant_to_category(merchant, request.user_id)
 
         if not category_id:
-            # Default to uncategorized or first category
+            # This shouldn't happen anymore with improved fallback, but keep as safety
             categories_result = supabase.table('categories').select('*').limit(1).execute()
             if categories_result.data:
                 category = categories_result.data[0]
-                return ClassifyExpenseResponse(
-                    category_id=category['id'],
-                    category_name=category['name'],
-                    necessity_score=category['necessity_score'],
-                    confidence=0.3,
-                    alternatives=[]
-                )
+                return {
+                    "category_id": category['id'],
+                    "category_name": category['name'],
+                    "necessity_score": category['necessity_score'],
+                    "confidence": 0.3,
+                    "alternatives": [],
+                    "debug": [{"type": "emergency_fallback", "reason": "match_merchant_to_category returned None"}]
+                }
             raise HTTPException(status_code=404, detail="No categories found")
 
         # Get the matched category
         category_result = supabase.table('categories').select('*').eq('id', category_id).execute()
         category = category_result.data[0]
 
-        # Get alternatives (top 3)
-        all_categories = supabase.table('categories').select('*').execute()
+        # Get alternatives from debug info (next best matches)
         alternatives = [
-            {"category_id": c['id'], "category_name": c['name'], "confidence": 0.3}
-            for c in all_categories.data[:3] if c['id'] != category_id
+            {
+                "category_name": d['category'],
+                "similarity": d['similarity']
+            }
+            for d in debug_info[1:4] if d.get('category') and d.get('similarity')
         ]
 
-        return ClassifyExpenseResponse(
-            category_id=category['id'],
-            category_name=category['name'],
-            necessity_score=category['necessity_score'],
-            confidence=confidence,
-            alternatives=alternatives
-        )
+        return {
+            "category_id": category['id'],
+            "category_name": category['name'],
+            "necessity_score": category['necessity_score'],
+            "confidence": round(confidence, 4),
+            "method": "semantic",
+            "alternatives": alternatives,
+            "debug": debug_info
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -273,7 +394,7 @@ async def process_expense(request: ProcessExpenseRequest) -> Dict[str, Any]:
     """
     try:
         merchant = request.merchant or request.description
-        category_id, confidence = await match_merchant_to_category(merchant, request.user_id)
+        category_id, confidence, _ = await match_merchant_to_category(merchant, request.user_id)
 
         if not category_id:
             # Get default category
