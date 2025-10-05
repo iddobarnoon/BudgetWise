@@ -1,0 +1,112 @@
+services:
+  # Auth Service - Port 8001
+  auth-service:
+    build:
+      context: .
+      dockerfile: src/backend/components/auth-service/Dockerfile
+    container_name: budgetwise-auth
+    ports:
+      - "8001:8001"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    env_file:
+      - .env
+    networks:
+      - budgetwise-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Ranking System - Port 8002
+  ranking-system:
+    build:
+      context: .
+      dockerfile: src/backend/components/ranking-system/Dockerfile
+    container_name: budgetwise-ranking
+    ports:
+      - "8002:8002"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    env_file:
+      - .env
+    networks:
+      - budgetwise-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8002/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Budget Engine - Port 8003
+  budget-engine:
+    build:
+      context: .
+      dockerfile: src/backend/components/budget-engine/Dockerfile
+    container_name: budgetwise-budget
+    ports:
+      - "8003:8003"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - RANKING_SERVICE_URL=http://ranking-system:8002
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    env_file:
+      - .env
+    networks:
+      - budgetwise-network
+    depends_on:
+      - ranking-system
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8003/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # AI Pipeline - Port 8004
+  ai-pipeline:
+    build:
+      context: .
+      dockerfile: src/backend/components/pipeline/Dockerfile
+    container_name: budgetwise-ai
+    ports:
+      - "8004:8004"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - ELEVENLABS_VOICE_ID=${ELEVENLABS_VOICE_ID:-21m00Tcm4TlvDq8ikWAM}
+      - BUDGET_ENGINE_URL=http://budget-engine:8003
+      - RANKING_SERVICE_URL=http://ranking-system:8002
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    env_file:
+      - .env
+    networks:
+      - budgetwise-network
+    depends_on:
+      - budget-engine
+      - ranking-system
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8004/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  budgetwise-network:
+    driver: bridge
+    name: budgetwise-network
