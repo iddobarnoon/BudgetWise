@@ -95,8 +95,8 @@ async def chat(request: ChatRequest):
         # Get conversation history
         conversation_history = []
         if request.conversation_id:
-            history = await db.get_chat_history(
-                user_id=request.user_id,
+            history = await db.get_conversation_history(
+                request.conversation_id,
                 limit=10
             )
             conversation_history = [

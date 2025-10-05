@@ -14,13 +14,6 @@ class SupabaseClient:
             raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set")
         self.client: Client = create_client(url, key)
 
-    # ============= Users =============
-
-    async def get_user(self, user_id: str) -> Optional[Dict[str, Any]]:
-        """Get user profile by ID"""
-        response = self.client.table("users").select("*").eq("id", user_id).execute()
-        return response.data[0] if response.data else None
-
     # ============= Categories =============
 
     async def get_categories(self, include_custom: bool = False) -> List[Dict[str, Any]]:
@@ -140,32 +133,6 @@ class SupabaseClient:
         """Add a new category matching rule"""
         response = self.client.table("category_rules").insert(rule_data).execute()
         return response.data[0]
-
-    # ============= Chat Messages =============
-
-    async def save_chat_message(self, user_id: str, role: str, content: str, metadata: Optional[Dict[str, Any]] = None, conversation_id: Optional[str] = None) -> Dict[str, Any]:
-        """Save a chat message to the database"""
-        message_data = {
-            "user_id": user_id,
-            "role": role,
-            "content": content,
-            "metadata": metadata or {}
-        }
-        response = self.client.table("chat_messages").insert(message_data).execute()
-        return response.data[0] if response.data else {}
-
-    async def get_chat_history(self, user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
-        """Get recent chat history for a user"""
-        response = (
-            self.client.table("chat_messages")
-            .select("*")
-            .eq("user_id", user_id)
-            .order("timestamp", desc=True)
-            .limit(limit)
-            .execute()
-        )
-        # Reverse to get chronological order
-        return list(reversed(response.data)) if response.data else []
 
 # Global database instance
 db = SupabaseClient()

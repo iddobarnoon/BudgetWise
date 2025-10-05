@@ -5,15 +5,9 @@ OpenAI GPT-4o-mini integration for BudgetWise AI
 import os
 import json
 from typing import Optional, Dict, Any, List
-from pathlib import Path
-from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 import logging
-
-# Load environment variables
-env_path = Path(__file__).resolve().parent.parent.parent.parent / '.env'
-load_dotenv(dotenv_path=env_path)
 
 from prompts import (
     FINANCIAL_ADVISOR_SYSTEM_PROMPT,
@@ -199,7 +193,7 @@ class AIService:
         """
         # Format category breakdown
         category_breakdown = "\n".join([
-            f"- {cat['category_name']}: ${cat['spent']:.2f} / ${cat['allocated']:.2f}"
+            f"- {cat['category_name']}: ${cat['spent_amount']:.2f} / ${cat['allocated_amount']:.2f}"
             for cat in budget_summary.get("categories", [])
         ])
 
