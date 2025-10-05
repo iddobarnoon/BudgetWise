@@ -1,9 +1,13 @@
-from fastapi import APIRouter, HTTPException, Depends, Header
+from fastapi import APIRouter, HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from main import auth_service
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
+
+# Use HTTP Bearer so OpenAPI/Swagger UI exposes the Authorize button
+security = HTTPBearer()
 
 # Request Models
 class RegisterRequest(BaseModel):
@@ -19,12 +23,11 @@ class LoginRequest(BaseModel):
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
-# Dependency for protected routes
-async def get_current_user(authorization: str = Header(...)):
-    """Extract and validate JWT from Authorization header"""
+# Dependency for protected routes (uses HTTP Bearer so Swagger UI can send the header)
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Extract and validate JWT from HTTP Bearer credentials"""
     try:
-        # Extract token from "Bearer <token>"
-        token = authorization.replace("Bearer ", "")
+        token = credentials.credentials
         result = await auth_service.validate_token(token)
 
         if not result.get("valid"):
@@ -120,13 +123,13 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user)):
     }
 
 @router.get("/validate")
-async def validate_token_endpoint(authorization: str = Header(...)):
+async def validate_token_endpoint(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """
     Validate a JWT token
     Returns user info if valid, error if not
     """
     try:
-        token = authorization.replace("Bearer ", "")
+        token = credentials.credentials
         result = await auth_service.validate_token(token)
 
         if result.get("valid"):
