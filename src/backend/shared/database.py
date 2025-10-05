@@ -14,13 +14,6 @@ class SupabaseClient:
             raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set")
         self.client: Client = create_client(url, key)
 
-    # ============= Users =============
-
-    async def get_user(self, user_id: str) -> Optional[Dict[str, Any]]:
-        """Get user profile by ID"""
-        response = self.client.table("users").select("*").eq("id", user_id).execute()
-        return response.data[0] if response.data else None
-
     # ============= Categories =============
 
     async def get_categories(self, include_custom: bool = False) -> List[Dict[str, Any]]:

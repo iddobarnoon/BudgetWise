@@ -301,10 +301,9 @@ class ServiceOrchestrator:
             user_id=user_id
         )
 
-        # Extract from flat structure (ranking system returns flat, not nested)
-        category_id = classification.get("category_id")
-        category_name = classification.get("category_name", "Unknown")
-        necessity_score = classification.get("necessity_score", 5)
+        category = classification.get("category", {})
+        category_id = category.get("id")
+        necessity_score = category.get("necessity_score", 5)
 
         # Step 2: Check budget
         budget_check = await self.check_purchase(
@@ -316,7 +315,7 @@ class ServiceOrchestrator:
         # Step 3: Build context
         context = {
             "classification": classification,
-            "category": category_name,
+            "category": category.get("name", "Unknown"),
             "category_id": category_id,
             "necessity_score": necessity_score,
             "budget_context": {
