@@ -108,29 +108,40 @@ async def match_merchant_to_category(merchant: str, user_id: str) -> tuple[Optio
         matched_rules = []
 
         for rule in rules:
-            pattern = rule['merchant_pattern'].lower()
-            weight = rule['weight']
-            rule_score = 0
+            priority = rule.get('priority', 10)
 
-            # Improved matching logic with multiple strategies
-            # 1. Exact match (highest score)
-            if pattern == normalized:
-                rule_score = weight * 2
-                matched_rules.append(f"{pattern} (exact)")
-            # 2. Pattern contains merchant (strong match)
-            elif pattern in normalized:
-                rule_score = weight * 1.5
-                matched_rules.append(f"{pattern} (contains)")
-            # 3. Merchant contains pattern (good match)
-            elif normalized in pattern:
-                rule_score = weight * 1.2
-                matched_rules.append(f"{pattern} (partial)")
-            # 4. Word-level matching (medium match)
-            elif any(word in normalized.split() for word in pattern.split() if len(word) > 2):
-                rule_score = weight * 0.8
-                matched_rules.append(f"{pattern} (word)")
+            # Check merchant_patterns array
+            for pattern in rule.get('merchant_patterns', []):
+                pattern_lower = pattern.lower()
+                rule_score = 0
 
-            category_score += rule_score
+                # Improved matching logic with multiple strategies
+                # 1. Exact match (highest score)
+                if pattern_lower == normalized:
+                    rule_score = priority * 2
+                    matched_rules.append(f"{pattern} (exact)")
+                # 2. Pattern in merchant (strong match)
+                elif pattern_lower in normalized:
+                    rule_score = priority * 1.5
+                    matched_rules.append(f"{pattern} (contains)")
+                # 3. Merchant in pattern (good match)
+                elif normalized in pattern_lower:
+                    rule_score = priority * 1.2
+                    matched_rules.append(f"{pattern} (partial)")
+                # 4. Word-level matching (medium match)
+                elif any(word in normalized.split() for word in pattern_lower.split() if len(word) > 2):
+                    rule_score = priority * 0.8
+                    matched_rules.append(f"{pattern} (word)")
+
+                category_score += rule_score
+
+            # Also check keywords array for additional matches
+            for keyword in rule.get('keywords', []):
+                keyword_lower = keyword.lower()
+                if keyword_lower in normalized or any(keyword_lower in word for word in normalized.split()):
+                    keyword_score = priority * 0.6  # Keywords have lower weight
+                    category_score += keyword_score
+                    matched_rules.append(f"{keyword} (keyword)")
 
         if matched_rules:
             debug_info.append({
@@ -316,7 +327,7 @@ async def process_expense(request: ProcessExpenseRequest) -> Dict[str, Any]:
     """
     try:
         merchant = request.merchant or request.description
-        category_id, confidence = await match_merchant_to_category(merchant, request.user_id)
+        category_id, confidence, _ = await match_merchant_to_category(merchant, request.user_id)
 
         if not category_id:
             # Get default category

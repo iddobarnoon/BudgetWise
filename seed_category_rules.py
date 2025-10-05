@@ -13,82 +13,81 @@ load_dotenv(find_dotenv())
 supabase = create_client(os.getenv('SUPABASE_URL'), os.getenv('SUPABASE_KEY'))
 
 # Category rules data structure
-# Each rule has: category_id, merchant_pattern (main match), keywords (additional matches), weight (priority)
+# Each rule has: category_id, merchant_patterns (array), keywords (array), priority
 CATEGORY_RULES = [
     # Groceries
-    {"category_name": "Groceries", "merchant_pattern": "walmart", "weight": 10},
-    {"category_name": "Groceries", "merchant_pattern": "target", "weight": 10},
-    {"category_name": "Groceries", "merchant_pattern": "kroger", "weight": 10},
-    {"category_name": "Groceries", "merchant_pattern": "safeway", "weight": 10},
-    {"category_name": "Groceries", "merchant_pattern": "whole foods", "weight": 10},
-    {"category_name": "Groceries", "merchant_pattern": "trader joes", "weight": 10},
-    {"category_name": "Groceries", "merchant_pattern": "costco", "weight": 10},
-    {"category_name": "Groceries", "merchant_pattern": "sams club", "weight": 10},
-    {"category_name": "Groceries", "merchant_pattern": "aldi", "weight": 10},
-    {"category_name": "Groceries", "merchant_pattern": "publix", "weight": 10},
+    {"category_name": "Groceries", "merchant_patterns": ["walmart"], "keywords": ["grocery", "food"], "priority": 10},
+    {"category_name": "Groceries", "merchant_patterns": ["target"], "keywords": ["grocery"], "priority": 10},
+    {"category_name": "Groceries", "merchant_patterns": ["kroger"], "keywords": ["grocery"], "priority": 10},
+    {"category_name": "Groceries", "merchant_patterns": ["safeway"], "keywords": ["grocery"], "priority": 10},
+    {"category_name": "Groceries", "merchant_patterns": ["whole foods"], "keywords": ["grocery", "organic"], "priority": 10},
+    {"category_name": "Groceries", "merchant_patterns": ["trader joes", "trader joe"], "keywords": ["grocery"], "priority": 10},
+    {"category_name": "Groceries", "merchant_patterns": ["costco"], "keywords": ["grocery", "wholesale"], "priority": 10},
+    {"category_name": "Groceries", "merchant_patterns": ["sams club", "sam's club"], "keywords": ["grocery", "wholesale"], "priority": 10},
+    {"category_name": "Groceries", "merchant_patterns": ["aldi"], "keywords": ["grocery"], "priority": 10},
+    {"category_name": "Groceries", "merchant_patterns": ["publix"], "keywords": ["grocery"], "priority": 10},
 
     # Transportation/Gas
-    {"category_name": "Transportation", "merchant_pattern": "shell", "weight": 10},
-    {"category_name": "Transportation", "merchant_pattern": "chevron", "weight": 10},
-    {"category_name": "Transportation", "merchant_pattern": "exxon", "weight": 10},
-    {"category_name": "Transportation", "merchant_pattern": "bp", "weight": 10},
-    {"category_name": "Transportation", "merchant_pattern": "gas", "weight": 8},
-    {"category_name": "Transportation", "merchant_pattern": "fuel", "weight": 8},
-    {"category_name": "Transportation", "merchant_pattern": "uber", "weight": 10},
-    {"category_name": "Transportation", "merchant_pattern": "lyft", "weight": 10},
-    {"category_name": "Transportation", "merchant_pattern": "taxi", "weight": 10},
+    {"category_name": "Transportation", "merchant_patterns": ["shell"], "keywords": ["gas", "fuel"], "priority": 10},
+    {"category_name": "Transportation", "merchant_patterns": ["chevron"], "keywords": ["gas", "fuel"], "priority": 10},
+    {"category_name": "Transportation", "merchant_patterns": ["exxon"], "keywords": ["gas", "fuel"], "priority": 10},
+    {"category_name": "Transportation", "merchant_patterns": ["bp"], "keywords": ["gas", "fuel"], "priority": 10},
+    {"category_name": "Transportation", "merchant_patterns": ["gas station"], "keywords": ["gas", "fuel"], "priority": 8},
+    {"category_name": "Transportation", "merchant_patterns": ["fuel"], "keywords": ["gas"], "priority": 8},
+    {"category_name": "Transportation", "merchant_patterns": ["uber"], "keywords": ["ride", "transport"], "priority": 10},
+    {"category_name": "Transportation", "merchant_patterns": ["lyft"], "keywords": ["ride", "transport"], "priority": 10},
+    {"category_name": "Transportation", "merchant_patterns": ["taxi", "cab"], "keywords": ["ride", "transport"], "priority": 10},
 
     # Dining/Restaurants
-    {"category_name": "Dining Out", "merchant_pattern": "restaurant", "weight": 10},
-    {"category_name": "Dining Out", "merchant_pattern": "mcdonalds", "weight": 10},
-    {"category_name": "Dining Out", "merchant_pattern": "burger king", "weight": 10},
-    {"category_name": "Dining Out", "merchant_pattern": "starbucks", "weight": 10},
-    {"category_name": "Dining Out", "merchant_pattern": "subway", "weight": 10},
-    {"category_name": "Dining Out", "merchant_pattern": "chipotle", "weight": 10},
-    {"category_name": "Dining Out", "merchant_pattern": "pizza", "weight": 8},
-    {"category_name": "Dining Out", "merchant_pattern": "cafe", "weight": 8},
-    {"category_name": "Dining Out", "merchant_pattern": "coffee", "weight": 7},
-    {"category_name": "Dining Out", "merchant_pattern": "doordash", "weight": 10},
-    {"category_name": "Dining Out", "merchant_pattern": "grubhub", "weight": 10},
-    {"category_name": "Dining Out", "merchant_pattern": "uber eats", "weight": 10},
+    {"category_name": "Dining Out", "merchant_patterns": ["restaurant"], "keywords": ["dining", "food"], "priority": 10},
+    {"category_name": "Dining Out", "merchant_patterns": ["mcdonalds", "mcdonald"], "keywords": ["fast food"], "priority": 10},
+    {"category_name": "Dining Out", "merchant_patterns": ["burger king"], "keywords": ["fast food"], "priority": 10},
+    {"category_name": "Dining Out", "merchant_patterns": ["starbucks"], "keywords": ["coffee", "cafe"], "priority": 10},
+    {"category_name": "Dining Out", "merchant_patterns": ["subway"], "keywords": ["fast food", "sandwich"], "priority": 10},
+    {"category_name": "Dining Out", "merchant_patterns": ["chipotle"], "keywords": ["fast food", "mexican"], "priority": 10},
+    {"category_name": "Dining Out", "merchant_patterns": ["pizza"], "keywords": ["food"], "priority": 8},
+    {"category_name": "Dining Out", "merchant_patterns": ["cafe", "coffee shop"], "keywords": ["coffee"], "priority": 8},
+    {"category_name": "Dining Out", "merchant_patterns": ["doordash"], "keywords": ["delivery", "food"], "priority": 10},
+    {"category_name": "Dining Out", "merchant_patterns": ["grubhub"], "keywords": ["delivery", "food"], "priority": 10},
+    {"category_name": "Dining Out", "merchant_patterns": ["uber eats"], "keywords": ["delivery", "food"], "priority": 10},
 
     # Entertainment
-    {"category_name": "Entertainment", "merchant_pattern": "netflix", "weight": 10},
-    {"category_name": "Entertainment", "merchant_pattern": "spotify", "weight": 10},
-    {"category_name": "Entertainment", "merchant_pattern": "hulu", "weight": 10},
-    {"category_name": "Entertainment", "merchant_pattern": "disney", "weight": 10},
-    {"category_name": "Entertainment", "merchant_pattern": "movie", "weight": 9},
-    {"category_name": "Entertainment", "merchant_pattern": "theater", "weight": 9},
-    {"category_name": "Entertainment", "merchant_pattern": "cinema", "weight": 9},
-    {"category_name": "Entertainment", "merchant_pattern": "amc", "weight": 10},
-    {"category_name": "Entertainment", "merchant_pattern": "steam", "weight": 10},
-    {"category_name": "Entertainment", "merchant_pattern": "playstation", "weight": 10},
-    {"category_name": "Entertainment", "merchant_pattern": "xbox", "weight": 10},
+    {"category_name": "Entertainment", "merchant_patterns": ["netflix"], "keywords": ["streaming", "video"], "priority": 10},
+    {"category_name": "Entertainment", "merchant_patterns": ["spotify"], "keywords": ["streaming", "music"], "priority": 10},
+    {"category_name": "Entertainment", "merchant_patterns": ["hulu"], "keywords": ["streaming", "video"], "priority": 10},
+    {"category_name": "Entertainment", "merchant_patterns": ["disney", "disney+"], "keywords": ["streaming", "video"], "priority": 10},
+    {"category_name": "Entertainment", "merchant_patterns": ["movie"], "keywords": ["cinema", "film"], "priority": 9},
+    {"category_name": "Entertainment", "merchant_patterns": ["theater", "theatre"], "keywords": ["cinema", "movie"], "priority": 9},
+    {"category_name": "Entertainment", "merchant_patterns": ["cinema"], "keywords": ["movie"], "priority": 9},
+    {"category_name": "Entertainment", "merchant_patterns": ["amc"], "keywords": ["movie", "cinema"], "priority": 10},
+    {"category_name": "Entertainment", "merchant_patterns": ["steam"], "keywords": ["gaming", "games"], "priority": 10},
+    {"category_name": "Entertainment", "merchant_patterns": ["playstation", "psn"], "keywords": ["gaming", "games"], "priority": 10},
+    {"category_name": "Entertainment", "merchant_patterns": ["xbox"], "keywords": ["gaming", "games"], "priority": 10},
 
     # Utilities
-    {"category_name": "Utilities", "merchant_pattern": "electric", "weight": 10},
-    {"category_name": "Utilities", "merchant_pattern": "water", "weight": 10},
-    {"category_name": "Utilities", "merchant_pattern": "internet", "weight": 10},
-    {"category_name": "Utilities", "merchant_pattern": "comcast", "weight": 10},
-    {"category_name": "Utilities", "merchant_pattern": "verizon", "weight": 10},
-    {"category_name": "Utilities", "merchant_pattern": "att", "weight": 10},
-    {"category_name": "Utilities", "merchant_pattern": "tmobile", "weight": 10},
+    {"category_name": "Utilities", "merchant_patterns": ["electric", "electricity"], "keywords": ["utility", "power"], "priority": 10},
+    {"category_name": "Utilities", "merchant_patterns": ["water"], "keywords": ["utility"], "priority": 10},
+    {"category_name": "Utilities", "merchant_patterns": ["internet"], "keywords": ["utility", "isp"], "priority": 10},
+    {"category_name": "Utilities", "merchant_patterns": ["comcast", "xfinity"], "keywords": ["internet", "cable"], "priority": 10},
+    {"category_name": "Utilities", "merchant_patterns": ["verizon"], "keywords": ["phone", "internet"], "priority": 10},
+    {"category_name": "Utilities", "merchant_patterns": ["att", "at&t"], "keywords": ["phone", "internet"], "priority": 10},
+    {"category_name": "Utilities", "merchant_patterns": ["tmobile", "t-mobile"], "keywords": ["phone", "mobile"], "priority": 10},
 
     # Shopping
-    {"category_name": "Shopping", "merchant_pattern": "amazon", "weight": 10},
-    {"category_name": "Shopping", "merchant_pattern": "ebay", "weight": 10},
-    {"category_name": "Shopping", "merchant_pattern": "etsy", "weight": 10},
-    {"category_name": "Shopping", "merchant_pattern": "bestbuy", "weight": 10},
-    {"category_name": "Shopping", "merchant_pattern": "macys", "weight": 10},
-    {"category_name": "Shopping", "merchant_pattern": "nordstrom", "weight": 10},
+    {"category_name": "Shopping", "merchant_patterns": ["amazon"], "keywords": ["online", "retail"], "priority": 10},
+    {"category_name": "Shopping", "merchant_patterns": ["ebay"], "keywords": ["online", "auction"], "priority": 10},
+    {"category_name": "Shopping", "merchant_patterns": ["etsy"], "keywords": ["online", "handmade"], "priority": 10},
+    {"category_name": "Shopping", "merchant_patterns": ["bestbuy", "best buy"], "keywords": ["electronics", "retail"], "priority": 10},
+    {"category_name": "Shopping", "merchant_patterns": ["macys", "macy"], "keywords": ["retail", "clothing"], "priority": 10},
+    {"category_name": "Shopping", "merchant_patterns": ["nordstrom"], "keywords": ["retail", "clothing"], "priority": 10},
 
     # Healthcare
-    {"category_name": "Healthcare", "merchant_pattern": "pharmacy", "weight": 10},
-    {"category_name": "Healthcare", "merchant_pattern": "cvs", "weight": 10},
-    {"category_name": "Healthcare", "merchant_pattern": "walgreens", "weight": 10},
-    {"category_name": "Healthcare", "merchant_pattern": "doctor", "weight": 9},
-    {"category_name": "Healthcare", "merchant_pattern": "hospital", "weight": 9},
-    {"category_name": "Healthcare", "merchant_pattern": "medical", "weight": 9},
+    {"category_name": "Healthcare", "merchant_patterns": ["pharmacy"], "keywords": ["medical", "medication"], "priority": 10},
+    {"category_name": "Healthcare", "merchant_patterns": ["cvs"], "keywords": ["pharmacy", "medical"], "priority": 10},
+    {"category_name": "Healthcare", "merchant_patterns": ["walgreens"], "keywords": ["pharmacy", "medical"], "priority": 10},
+    {"category_name": "Healthcare", "merchant_patterns": ["doctor", "dr"], "keywords": ["medical", "health"], "priority": 9},
+    {"category_name": "Healthcare", "merchant_patterns": ["hospital"], "keywords": ["medical", "health"], "priority": 9},
+    {"category_name": "Healthcare", "merchant_patterns": ["medical"], "keywords": ["health"], "priority": 9},
 ]
 
 def seed_category_rules():
@@ -124,14 +123,15 @@ def seed_category_rules():
 
         rule_data = {
             'category_id': categories[category_name],
-            'merchant_pattern': rule['merchant_pattern'],
-            'weight': rule['weight']
+            'merchant_patterns': rule['merchant_patterns'],
+            'keywords': rule['keywords'],
+            'priority': rule['priority']
         }
 
         try:
             supabase.table('category_rules').insert(rule_data).execute()
             inserted_count += 1
-            print(f"  ✓ Added rule: {category_name} <- '{rule['merchant_pattern']}'")
+            print(f"  ✓ Added rule: {category_name} <- {rule['merchant_patterns']}")
         except Exception as e:
             print(f"  ✗ Error adding rule for {category_name}: {e}")
 
@@ -151,7 +151,7 @@ def seed_category_rules():
         print("\nSample rules:")
         for rule in result.data[:5]:
             cat_name = next((name for name, id in categories.items() if id == rule['category_id']), 'Unknown')
-            print(f"  - {cat_name}: {rule['merchant_pattern']} (weight: {rule['weight']})")
+            print(f"  - {cat_name}: {rule['merchant_patterns']} (priority: {rule['priority']})")
 
 if __name__ == "__main__":
     print("="*60)
