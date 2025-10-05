@@ -11,10 +11,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-dialog": "^1.1.15",
-<<<<<<< HEAD
     "@radix-ui/react-icons": "^1.3.2",
-=======
->>>>>>> parent of dab350d (Revert "ai chat works")
     "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-progress": "^1.1.7",
     "@radix-ui/react-select": "^2.2.6",
