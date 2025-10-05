@@ -53,7 +53,7 @@ Add to your `.env` file:
 OPENAI_API_KEY=your_openai_api_key_here
 
 # ElevenLabs (Optional - for voice features)
-ELEVENLABS_API_KEY=sk_61322e7a89732c756005100ef9dc9e252e698711e0f252ae
+ELEVENLABS_API_KEY=
 ELEVENLABS_VOICE_ID=21m00Tcm4TlvDq8ikWAM
 
 # Service URLs
