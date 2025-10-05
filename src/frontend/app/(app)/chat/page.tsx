@@ -66,19 +66,13 @@ export default function ChatPage() {
     try {
       const response = await aiAPI.chat({
         user_id: user.id,
-        message: userMessage.content,
-        context: {
-          conversation_history: messages.slice(-5).map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-        },
+        message: userMessage.content
       });
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: response.response,
+        content: response.message,
         timestamp: new Date(),
       };
 
