@@ -282,6 +282,7 @@ class AIService:
 
     async def classify_category(
         self,
+        merchant: str,
         description: str,
         amount: float,
         categories: List[Dict[str, Any]]
@@ -290,6 +291,7 @@ class AIService:
         Classify expense into a category using AI
 
         Args:
+            merchant: Merchant name
             description: Expense description
             amount: Expense amount
             categories: Available categories
@@ -304,6 +306,7 @@ class AIService:
         ])
 
         prompt = format_category_classification_prompt(
+            merchant=merchant,
             description=description,
             amount=amount,
             categories=categories_text

@@ -132,20 +132,29 @@ Keep responses concise (2-4 sentences) unless the user asks for detailed informa
 """
 
 # Category classification prompt
-CATEGORY_CLASSIFICATION_PROMPT = """Classify this expense into the most appropriate category.
+CATEGORY_CLASSIFICATION_PROMPT = """Classify this expense into the most appropriate category based on the merchant and description.
 
-Expense Description: "{description}"
+Merchant: "{merchant}"
+Description: "{description}"
 Amount: ${amount}
 
 Available Categories:
 {categories}
+
+Examples:
+- Netflix ($15.99) → Subscriptions (streaming service)
+- Whole Foods ($150) → Groceries (grocery store)
+- Uber ($25) → Transportation (ride service)
+- Apple Store ($500) → Shopping (electronics)
+- CVS Pharmacy ($30) → Healthcare (pharmacy)
+- Starbucks ($5.50) → Dining Out (coffee shop)
 
 Return JSON with:
 {{
     "category_id": "best matching category ID",
     "category_name": "category name",
     "confidence": 0.0-1.0,
-    "reasoning": "brief explanation"
+    "reasoning": "brief explanation of why this category was chosen"
 }}
 """
 
@@ -220,12 +229,14 @@ def format_chat_prompt(
     )
 
 def format_category_classification_prompt(
+    merchant: str,
     description: str,
     amount: float,
     categories: str
 ) -> str:
     """Format the category classification prompt"""
     return CATEGORY_CLASSIFICATION_PROMPT.format(
+        merchant=merchant or description,  # Fallback to description if no merchant
         description=description,
         amount=amount,
         categories=categories

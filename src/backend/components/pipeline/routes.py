@@ -78,6 +78,21 @@ class BudgetInsightsResponse(BaseModel):
     month: str
 
 
+class ClassifyExpenseRequest(BaseModel):
+    user_id: str
+    description: str
+    amount: float = Field(..., gt=0)
+    merchant: Optional[str] = None
+
+
+class ClassifyExpenseResponse(BaseModel):
+    category_id: str
+    category_name: str
+    necessity_score: int
+    confidence: float
+    reasoning: Optional[str] = None
+
+
 # ============= Chat Endpoint =============
 
 @router.post("/chat", response_model=ChatResponse)
@@ -259,6 +274,43 @@ async def extract_expense(request: ExpenseExtractionRequest):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Expense extraction failed: {str(e)}"
+        )
+
+
+# ============= Expense Classification =============
+
+@router.post("/classify-expense", response_model=ClassifyExpenseResponse)
+async def classify_expense(request: ClassifyExpenseRequest):
+    """
+    AI-powered expense classification using GPT-4o-mini
+
+    Intelligently categorizes expenses based on merchant and description,
+    returning high-confidence classifications (0.80-0.95 expected).
+
+    This uses the AI Service, NOT semantic embeddings.
+    """
+    try:
+        # Call orchestrator's classify_expense which uses AI Service
+        classification = await orchestrator.classify_expense(
+            description=request.description,
+            amount=request.amount,
+            user_id=request.user_id,
+            merchant=request.merchant
+        )
+
+        return ClassifyExpenseResponse(
+            category_id=classification.get("category_id", "unknown"),
+            category_name=classification.get("category_name", "Uncategorized"),
+            necessity_score=classification.get("necessity_score", 5),
+            confidence=classification.get("confidence", 0.0),
+            reasoning=classification.get("reasoning")
+        )
+
+    except Exception as e:
+        logger.error(f"Expense classification error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Expense classification failed: {str(e)}"
         )
 
 

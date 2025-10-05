@@ -73,39 +73,53 @@ class ServiceOrchestrator:
         self,
         description: str,
         amount: float,
-        user_id: str
+        user_id: str,
+        merchant: str = None
     ) -> Dict[str, Any]:
         """
-        Classify expense using Ranking System
+        Classify expense using AI Service (intelligent classification)
 
         Returns:
             {
-                "category": {...},
+                "category_id": "...",
+                "category_name": "...",
+                "necessity_score": 5,
                 "confidence": 0.95,
-                "alternatives": [...]
+                "reasoning": "..."
             }
         """
         try:
-            url = f"{self.ranking_service_url}/ranking/classify"
-            data = {
-                "description": description,
-                "amount": amount,
-                "user_id": user_id
-            }
-            result = await self._call_service("POST", url, json_data=data)
+            # Import AI service here to avoid circular imports
+            from ai_service import ai_service
+
+            # Get categories from Ranking System
+            categories = await self.get_categories(user_id)
+
+            # Use AI to classify
+            result = await ai_service.classify_category(
+                merchant=merchant or description,
+                description=description,
+                amount=amount,
+                categories=categories
+            )
+
+            # Add necessity_score from category
+            if result.get("category_id"):
+                category = next((c for c in categories if c['id'] == result["category_id"]), None)
+                if category:
+                    result["necessity_score"] = category.get("necessity_score", 5)
+
             return result
 
         except Exception as e:
             logger.error(f"Expense classification failed: {e}")
             # Fallback to default category
             return {
-                "category": {
-                    "id": "unknown",
-                    "name": "Uncategorized",
-                    "necessity_score": 5
-                },
+                "category_id": "unknown",
+                "category_name": "Uncategorized",
+                "necessity_score": 5,
                 "confidence": 0.0,
-                "alternatives": []
+                "reasoning": "Classification service unavailable"
             }
 
     async def get_categories(self, user_id: str) -> List[Dict[str, Any]]:
@@ -119,7 +133,8 @@ class ServiceOrchestrator:
             url = f"{self.ranking_service_url}/ranking/categories"
             params = {"user_id": user_id}
             result = await self._call_service("GET", url, params=params)
-            return result.get("categories", [])
+            # Ranking system returns array directly, not nested
+            return result if isinstance(result, list) else result.get("categories", [])
 
         except Exception as e:
             logger.error(f"Failed to fetch categories: {e}")
