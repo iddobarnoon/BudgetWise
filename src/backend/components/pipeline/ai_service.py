@@ -8,6 +8,7 @@ from typing import Optional, Dict, Any, List
 from openai import AsyncOpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 import logging
+from dotenv import load_dotenv
 
 from prompts import (
     FINANCIAL_ADVISOR_SYSTEM_PROMPT,
@@ -19,7 +20,7 @@ from prompts import (
 )
 
 logger = logging.getLogger(__name__)
-
+load_dotenv()
 
 class AIService:
     """OpenAI-powered AI service for financial recommendations"""
