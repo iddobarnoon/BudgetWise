@@ -123,9 +123,14 @@ def seed_category_rules():
 
         rule_data = {
             'category_id': categories[category_name],
+<<<<<<< HEAD
             'merchant_patterns': rule['merchant_patterns'],
             'keywords': rule['keywords'],
             'priority': rule['priority']
+=======
+            'merchant_patterns': [rule['merchant_pattern']],  # Array field
+            'priority': rule['weight']  # Changed from 'weight' to 'priority'
+>>>>>>> 956236fe0a03ce153a4af285ed7ee1f32703413f
         }
 
         try:
@@ -151,7 +156,12 @@ def seed_category_rules():
         print("\nSample rules:")
         for rule in result.data[:5]:
             cat_name = next((name for name, id in categories.items() if id == rule['category_id']), 'Unknown')
+<<<<<<< HEAD
             print(f"  - {cat_name}: {rule['merchant_patterns']} (priority: {rule['priority']})")
+=======
+            patterns = ', '.join(rule.get('merchant_patterns', []))
+            print(f"  - {cat_name}: {patterns} (priority: {rule.get('priority', 0)})")
+>>>>>>> 956236fe0a03ce153a4af285ed7ee1f32703413f
 
 if __name__ == "__main__":
     print("="*60)
