@@ -14,6 +14,64 @@ class SupabaseClient:
             raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set")
         self.client: Client = create_client(url, key)
 
+    # ============= Users =============
+
+    async def get_user(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get user by ID"""
+        try:
+            response = self.client.table("users").select("*").eq("id", user_id).execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            print(f"Error fetching user {user_id}: {e}")
+            return None
+
+    # ============= Conversations =============
+
+    async def save_chat_message(
+        self,
+        user_id: str,
+        role: str,
+        content: str,
+        conversation_id: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Save chat message to conversations table"""
+        try:
+            data = {
+                "user_id": user_id,
+                "conversation_id": conversation_id,
+                "role": role,
+                "content": content,
+                "metadata": metadata or {},
+                "created_at": datetime.utcnow().isoformat()
+            }
+            
+            response = self.client.table("conversations").insert(data).execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            print(f"Error saving chat message: {e}")
+            return None
+
+    async def get_conversation_history(
+        self,
+        conversation_id: str,
+        limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """Get conversation history"""
+        try:
+            response = (
+                self.client.table("conversations")
+                .select("*")
+                .eq("conversation_id", conversation_id)
+                .order("created_at", desc=False)
+                .limit(limit)
+                .execute()
+            )
+            return response.data
+        except Exception as e:
+            print(f"Error fetching conversation history: {e}")
+            return []
+
     # ============= Categories =============
 
     async def get_categories(self, include_custom: bool = False) -> List[Dict[str, Any]]:
