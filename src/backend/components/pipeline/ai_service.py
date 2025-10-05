@@ -275,11 +275,11 @@ class AIService:
                 system_prompt=FINANCIAL_ADVISOR_SYSTEM_PROMPT,
                 user_prompt=prompt
             )
-            return response
+            return {"message": response}
 
         except Exception as e:
             logger.error(f"Chat error: {e}")
-            return "I apologize, but I'm having trouble processing your request right now. Please try again."
+            return {"message": "I apologize, but I'm having trouble processing your request right now. Please try again."}
 
     async def classify_category(
         self,
