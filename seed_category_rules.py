@@ -124,8 +124,8 @@ def seed_category_rules():
 
         rule_data = {
             'category_id': categories[category_name],
-            'merchant_pattern': rule['merchant_pattern'],
-            'weight': rule['weight']
+            'merchant_patterns': [rule['merchant_pattern']],  # Array field
+            'priority': rule['weight']  # Changed from 'weight' to 'priority'
         }
 
         try:
@@ -151,7 +151,8 @@ def seed_category_rules():
         print("\nSample rules:")
         for rule in result.data[:5]:
             cat_name = next((name for name, id in categories.items() if id == rule['category_id']), 'Unknown')
-            print(f"  - {cat_name}: {rule['merchant_pattern']} (weight: {rule['weight']})")
+            patterns = ', '.join(rule.get('merchant_patterns', []))
+            print(f"  - {cat_name}: {patterns} (priority: {rule.get('priority', 0)})")
 
 if __name__ == "__main__":
     print("="*60)
