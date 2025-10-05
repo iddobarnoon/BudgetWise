@@ -34,7 +34,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     conversation_id: str
-    message: str
+    response: str  # Changed from message to response to match frontend
     metadata: Optional[Dict[str, Any]] = None
 
 
@@ -123,7 +123,7 @@ async def chat(request: ChatRequest):
         user_context = await orchestrator.get_user_context(request.user_id)
 
         # Generate AI response
-        response_message = await ai_service.chat(
+        response = await ai_service.chat(
             user_message=request.message,
             user_id=request.user_id,
             conversation_history=conversation_history,
@@ -135,6 +135,9 @@ async def chat(request: ChatRequest):
 
         # Generate conversation ID if new
         conv_id = request.conversation_id or f"conv_{request.user_id}_{int(datetime.now().timestamp())}"
+        
+        # Ensure response format matches frontend expectations
+        response_message = response["message"]
 
         # Save messages to database
         await db.save_chat_message(
@@ -152,7 +155,7 @@ async def chat(request: ChatRequest):
 
         return ChatResponse(
             conversation_id=conv_id,
-            message=response_message,
+            response=response_message,  # Changed from message to response
             metadata={"user_context": user_context}
         )
 
