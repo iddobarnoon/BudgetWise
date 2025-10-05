@@ -80,15 +80,20 @@ async def get_category_rules(category_id: str) -> List[Dict]:
         return []
 
 
-async def match_merchant_to_category(merchant: str, user_id: str) -> tuple[Optional[str], float]:
-    """Match merchant to category using rules and user overrides"""
+async def match_merchant_to_category(merchant: str, user_id: str) -> tuple[Optional[str], float, List[Dict]]:
+    """
+    Match merchant to category using rules and user overrides
+    Returns: (category_id, confidence, debug_info)
+    """
     normalized = normalize_merchant(merchant)
+    debug_info = []
 
     # Check user overrides first
     try:
         override_result = supabase.table('user_merchant_overrides').select('category_id').eq('user_id', user_id).eq('merchant_name', normalized).execute()
         if override_result.data:
-            return override_result.data[0]['category_id'], 0.99
+            debug_info.append({"type": "override", "matched": True, "category_id": override_result.data[0]['category_id']})
+            return override_result.data[0]['category_id'], 0.99, debug_info
     except Exception as e:
         print(f"Error checking overrides: {e}")
 
@@ -100,11 +105,39 @@ async def match_merchant_to_category(merchant: str, user_id: str) -> tuple[Optio
     for category in categories:
         rules = await get_category_rules(category['id'])
         category_score = 0
+        matched_rules = []
 
         for rule in rules:
-            # Simple keyword matching
-            if rule['merchant_pattern'].lower() in normalized:
-                category_score += rule['weight']
+            pattern = rule['merchant_pattern'].lower()
+            weight = rule['weight']
+            rule_score = 0
+
+            # Improved matching logic with multiple strategies
+            # 1. Exact match (highest score)
+            if pattern == normalized:
+                rule_score = weight * 2
+                matched_rules.append(f"{pattern} (exact)")
+            # 2. Pattern contains merchant (strong match)
+            elif pattern in normalized:
+                rule_score = weight * 1.5
+                matched_rules.append(f"{pattern} (contains)")
+            # 3. Merchant contains pattern (good match)
+            elif normalized in pattern:
+                rule_score = weight * 1.2
+                matched_rules.append(f"{pattern} (partial)")
+            # 4. Word-level matching (medium match)
+            elif any(word in normalized.split() for word in pattern.split() if len(word) > 2):
+                rule_score = weight * 0.8
+                matched_rules.append(f"{pattern} (word)")
+
+            category_score += rule_score
+
+        if matched_rules:
+            debug_info.append({
+                "category": category['name'],
+                "score": category_score,
+                "matched_rules": matched_rules
+            })
 
         scores.append({
             'category_id': category['id'],
@@ -117,13 +150,21 @@ async def match_merchant_to_category(merchant: str, user_id: str) -> tuple[Optio
     scores.sort(key=lambda x: x['score'], reverse=True)
 
     if not scores or scores[0]['score'] == 0:
-        return None, 0.0
+        # Find "Other" or "Uncategorized" category as fallback
+        other_category = next(
+            (cat for cat in categories if cat['name'].lower() in ['other', 'uncategorized', 'misc']),
+            categories[0] if categories else None
+        )
+        if other_category:
+            debug_info.append({"type": "fallback", "category": other_category['name']})
+            return other_category['id'], 0.3, debug_info
+        return None, 0.0, debug_info
 
     # Calculate confidence
     score_values = [s['score'] for s in scores]
     confidence = calculate_confidence(score_values)
 
-    return scores[0]['category_id'], confidence
+    return scores[0]['category_id'], confidence, debug_info
 
 
 # Endpoints
@@ -155,26 +196,27 @@ async def get_categories(user_id: str) -> List[Dict[str, Any]]:
 
 
 @router.post("/classify")
-async def classify_expense(request: ClassifyExpenseRequest) -> ClassifyExpenseResponse:
+async def classify_expense(request: ClassifyExpenseRequest) -> Dict[str, Any]:
     """
-    Classify expense and return category with confidence
+    Classify expense and return category with confidence and debug info
     """
     try:
         merchant = request.merchant or request.description
-        category_id, confidence = await match_merchant_to_category(merchant, request.user_id)
+        category_id, confidence, debug_info = await match_merchant_to_category(merchant, request.user_id)
 
         if not category_id:
-            # Default to uncategorized or first category
+            # This shouldn't happen anymore with improved fallback, but keep as safety
             categories_result = supabase.table('categories').select('*').limit(1).execute()
             if categories_result.data:
                 category = categories_result.data[0]
-                return ClassifyExpenseResponse(
-                    category_id=category['id'],
-                    category_name=category['name'],
-                    necessity_score=category['necessity_score'],
-                    confidence=0.3,
-                    alternatives=[]
-                )
+                return {
+                    "category_id": category['id'],
+                    "category_name": category['name'],
+                    "necessity_score": category['necessity_score'],
+                    "confidence": 0.3,
+                    "alternatives": [],
+                    "debug": [{"type": "emergency_fallback", "reason": "match_merchant_to_category returned None"}]
+                }
             raise HTTPException(status_code=404, detail="No categories found")
 
         # Get the matched category
@@ -188,13 +230,14 @@ async def classify_expense(request: ClassifyExpenseRequest) -> ClassifyExpenseRe
             for c in all_categories.data[:3] if c['id'] != category_id
         ]
 
-        return ClassifyExpenseResponse(
-            category_id=category['id'],
-            category_name=category['name'],
-            necessity_score=category['necessity_score'],
-            confidence=confidence,
-            alternatives=alternatives
-        )
+        return {
+            "category_id": category['id'],
+            "category_name": category['name'],
+            "necessity_score": category['necessity_score'],
+            "confidence": confidence,
+            "alternatives": alternatives,
+            "debug": debug_info  # Include debug information for troubleshooting
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
