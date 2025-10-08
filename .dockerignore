@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+*.egg-info/
+dist/
+build/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+docs/
+
+# Tests
+tests/
+*.test.py
+*_test.py
+
+# Frontend
+frontend/
+node_modules/
+
+# Database
+*.db
+*.sqlite
+
+# Logs
+*.log
+
+# Environment (will be mounted as volume)
+.env
+.env.local
+.env.*.local
+
+# CI/CD
+.github/
+
+# Other
+poetry.lock
+pyproject.toml
+.dockerignore
+docker-compose.yml
+Dockerfile

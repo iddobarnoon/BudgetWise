@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  # Auth Service - Port 8001
+  auth-service:
+    build: .
+    container_name: budgetwise-auth
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env
+    volumes:
+      - ./src/backend:/app:ro  # Read-only mount for code
+    working_dir: /app/components/auth-service
+    command: uvicorn app:app --host 0.0.0.0 --port 8001 --reload
+    restart: "no"  # Die on error, no auto-restart
+    networks:
+      - budgetwise-network
+
+  # Ranking System - Port 8002
+  ranking-system:
+    build: .
+    container_name: budgetwise-ranking
+    ports:
+      - "8002:8002"
+    env_file:
+      - .env
+    volumes:
+      - ./src/backend:/app:ro
+    working_dir: /app/components/ranking-system
+    command: uvicorn app:app --host 0.0.0.0 --port 8002 --reload
+    restart: "no"
+    networks:
+      - budgetwise-network
+
+  # Budget Engine - Port 8003
+  budget-engine:
+    build: .
+    container_name: budgetwise-budget
+    ports:
+      - "8003:8003"
+    env_file:
+      - .env
+    environment:
+      - RANKING_SERVICE_URL=http://ranking-system:8002
+    volumes:
+      - ./src/backend:/app:ro
+    working_dir: /app/components/budget-engine
+    command: uvicorn app:app --host 0.0.0.0 --port 8003 --reload
+    restart: "no"
+    depends_on:
+      - ranking-system
+    networks:
+      - budgetwise-network
+
+  # AI Pipeline - Port 8004
+  ai-pipeline:
+    build: .
+    container_name: budgetwise-ai
+    ports:
+      - "8004:8004"
+    env_file:
+      - .env
+    environment:
+      - BUDGET_ENGINE_URL=http://budget-engine:8003
+      - RANKING_SERVICE_URL=http://ranking-system:8002
+    volumes:
+      - ./src/backend:/app:ro
+    working_dir: /app/components/pipeline
+    command: uvicorn app:app --host 0.0.0.0 --port 8004 --reload
+    restart: "no"
+    depends_on:
+      - budget-engine
+      - ranking-system
+    networks:
+      - budgetwise-network
+
+networks:
+  budgetwise-network:
+    driver: bridge

@@ -31,12 +31,12 @@ class BudgetEngine:
         goals = goals or []
 
         # Get categories with priorities
-        categories = await db.get_categories(include_custom=False)
-        user_prefs = await db.get_user_category_preferences(user_id)
+        categories = db.get_categories(include_custom=False)
+        user_prefs = db.get_user_category_preferences(user_id)
         pref_map = {pref["category_id"]: pref for pref in user_prefs}
 
         # Get historical spending patterns (last 3 months)
-        expenses = await db.get_user_expense_history(user_id, limit=200)
+        expenses = db.get_user_expense_history(user_id, limit=200)
         spending_patterns = self._analyze_spending_patterns(expenses)
 
         # Determine allocation strategy based on goals
@@ -373,12 +373,12 @@ class BudgetEngine:
     ) -> Dict[str, Any]:
         """Save budget and allocations to database"""
         # Insert budget
-        budget_response = await db.client.table("budgets").insert(budget_data).execute()
+        budget_response = db.client.table("budgets").insert(budget_data).execute()
         budget = budget_response.data[0]
 
         # Insert allocations
         for alloc in allocations:
-            await db.client.table("budget_allocations").insert({
+            db.client.table("budget_allocations").insert({
                 "budget_id": budget["id"],
                 "category_id": alloc.category_id,
                 "allocated_amount": str(alloc.allocated_amount),
@@ -399,7 +399,7 @@ class BudgetEngine:
         if not budget:
             return None
 
-        response = await db.client.table("budget_allocations").select("*").eq(
+        response = db.client.table("budget_allocations").select("*").eq(
             "budget_id", budget["id"]
         ).eq("category_id", category_id).execute()
 
@@ -411,7 +411,7 @@ class BudgetEngine:
         month: str
     ) -> Optional[Dict[str, Any]]:
         """Get budget for a specific month"""
-        response = await db.client.table("budgets").select("*").eq(
+        response = db.client.table("budgets").select("*").eq(
             "user_id", user_id
         ).eq("month", month).execute()
 
@@ -419,7 +419,7 @@ class BudgetEngine:
 
         if budget:
             # Fetch allocations
-            alloc_response = await db.client.table("budget_allocations").select("*").eq(
+            alloc_response = db.client.table("budget_allocations").select("*").eq(
                 "budget_id", budget["id"]
             ).execute()
             budget["allocations"] = alloc_response.data
@@ -432,7 +432,7 @@ class BudgetEngine:
         new_spent: Decimal
     ) -> Dict[str, Any]:
         """Update spent amount for an allocation"""
-        response = await db.client.table("budget_allocations").update({
+        response = db.client.table("budget_allocations").update({
             "spent_amount": str(new_spent)
         }).eq("id", allocation_id).execute()
 
@@ -449,7 +449,7 @@ class BudgetEngine:
 
         for alloc in summary.categories:
             if alloc.remaining_amount > alloc.allocated_amount * Decimal("0.5"):
-                cat = await db.get_category_by_id(alloc.category_id)
+                cat = db.get_category_by_id(alloc.category_id)
                 if cat:
                     surplus.append(cat["name"])
 

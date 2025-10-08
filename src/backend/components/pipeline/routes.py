@@ -106,6 +106,12 @@ async def chat(request: ChatRequest):
     - Expense logging
     - Financial guidance
     """
+    # DEBUG: Log database object info
+    logger.info(f"DEBUG - db type: {type(db)}")
+    logger.info(f"DEBUG - db has save_chat_message: {hasattr(db, 'save_chat_message')}")
+    logger.info(f"DEBUG - db has get_conversation_history: {hasattr(db, 'get_conversation_history')}")
+    logger.info(f"DEBUG - db has get_user: {hasattr(db, 'get_user')}")
+
     try:
         # Get conversation history
         conversation_history = []
@@ -156,8 +162,18 @@ async def chat(request: ChatRequest):
             metadata={"user_context": user_context}
         )
 
+    except AttributeError as e:
+        logger.error(f"AttributeError in chat: {e}")
+        logger.error(f"db object type: {type(db)}")
+        logger.error(f"db object dir: {dir(db)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database attribute error: {str(e)}"
+        )
     except Exception as e:
-        logger.error(f"Chat error: {e}")
+        logger.error(f"Chat error ({type(e).__name__}): {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Chat processing failed: {str(e)}"

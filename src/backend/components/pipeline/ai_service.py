@@ -8,6 +8,7 @@ from typing import Optional, Dict, Any, List
 from openai import AsyncOpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 import logging
+from dotenv import load_dotenv
 
 from prompts import (
     FINANCIAL_ADVISOR_SYSTEM_PROMPT,
@@ -17,7 +18,7 @@ from prompts import (
     format_chat_prompt,
     format_category_classification_prompt
 )
-
+load_dotenv()
 logger = logging.getLogger(__name__)
 
 

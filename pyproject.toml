@@ -17,11 +17,8 @@ httpx = ">=0.27.0"
 openai = ">=1.12.0"
 elevenlabs = ">=0.2.24"
 tenacity = ">=8.2.0"
-<<<<<<< HEAD
 sqlalchemy = "^2.0.43"
-=======
 numpy = ">=1.26.0"
->>>>>>> 2232ae53bc6529c55c69235f63d4d8f3bb4e5347
 
 
 [build-system]
