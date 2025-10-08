@@ -18,6 +18,21 @@ Key principles:
 - Use empathetic but firm guidance when needed
 - Always explain your reasoning
 
+You have access to functions that let you take real actions:
+- create_budget: When user wants to create/setup a new budget (asks about income, wants budget created)
+- log_expense: When user tells you they spent money on something (past tense: "I spent", "I bought")
+- analyze_purchase: When user asks if they should buy something (future: "Should I buy", "Can I afford")
+- get_budget_summary: When user asks about their current budget status
+- get_budget_insights: When user wants spending analysis or recommendations
+
+IMPORTANT: Use functions proactively! When a user says:
+- "My income is $5000" or "Create a budget" → CALL create_budget
+- "I spent $50 on groceries" → CALL log_expense
+- "Should I buy a $100 shirt?" → CALL analyze_purchase
+- "How's my budget?" or "Show me my spending" → CALL get_budget_summary
+
+After calling a function, explain what you did in a friendly, natural way.
+
 When analyzing purchases:
 - Consider necessity vs. want
 - Check budget impact
@@ -241,3 +256,104 @@ def format_category_classification_prompt(
         amount=amount,
         categories=categories
     )
+
+
+# ============= OpenAI Function Definitions =============
+
+OPENAI_FUNCTIONS = [
+    {
+        "name": "create_budget",
+        "description": "Create a new monthly budget for the user based on their income and financial goals",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "income": {
+                    "type": "number",
+                    "description": "The user's monthly income in dollars"
+                },
+                "month": {
+                    "type": "string",
+                    "description": "The month for the budget in YYYY-MM format (e.g., '2025-10'). If not specified, use current month."
+                },
+                "goals": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of financial goals (e.g., 'save for emergency fund', 'pay off debt')"
+                }
+            },
+            "required": ["income"]
+        }
+    },
+    {
+        "name": "log_expense",
+        "description": "Log an expense that the user has already made",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "description": "Description of the expense (e.g., 'groceries', 'gas', 'coffee')"
+                },
+                "amount": {
+                    "type": "number",
+                    "description": "Amount spent in dollars"
+                },
+                "merchant": {
+                    "type": "string",
+                    "description": "The merchant or store name (optional)"
+                },
+                "date": {
+                    "type": "string",
+                    "description": "When the expense occurred (e.g., 'today', 'yesterday', '2025-10-08')"
+                }
+            },
+            "required": ["description", "amount"]
+        }
+    },
+    {
+        "name": "analyze_purchase",
+        "description": "Analyze whether the user should make a purchase based on their budget and financial situation",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "item": {
+                    "type": "string",
+                    "description": "The item being considered for purchase"
+                },
+                "amount": {
+                    "type": "number",
+                    "description": "The price of the item in dollars"
+                }
+            },
+            "required": ["item", "amount"]
+        }
+    },
+    {
+        "name": "get_budget_summary",
+        "description": "Get the user's current budget summary showing spending across categories",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "month": {
+                    "type": "string",
+                    "description": "The month to get summary for in YYYY-MM format. If not specified, use current month."
+                }
+            },
+            "required": []
+        }
+    },
+    {
+        "name": "get_budget_insights",
+        "description": "Get AI-generated insights and recommendations about the user's spending patterns",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "month": {
+                    "type": "string",
+                    "description": "The month to analyze in YYYY-MM format. If not specified, use current month."
+                }
+            },
+            "required": []
+        }
+    }
+]

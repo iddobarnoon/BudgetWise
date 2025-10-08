@@ -98,25 +98,20 @@ class ClassifyExpenseResponse(BaseModel):
 @router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     """
-    Main conversational AI endpoint
+    Main conversational AI endpoint with function calling support
 
     Handles:
-    - General budget questions
-    - Purchase advice
+    - Budget creation
     - Expense logging
+    - Purchase analysis
+    - General budget questions
     - Financial guidance
     """
-    # DEBUG: Log database object info
-    logger.info(f"DEBUG - db type: {type(db)}")
-    logger.info(f"DEBUG - db has save_chat_message: {hasattr(db, 'save_chat_message')}")
-    logger.info(f"DEBUG - db has get_conversation_history: {hasattr(db, 'get_conversation_history')}")
-    logger.info(f"DEBUG - db has get_user: {hasattr(db, 'get_user')}")
-
     try:
         # Get conversation history
         conversation_history = []
         if request.conversation_id:
-            history = await db.get_conversation_history(
+            history = db.get_conversation_history(
                 request.conversation_id,
                 limit=10
             )
@@ -128,8 +123,8 @@ async def chat(request: ChatRequest):
         # Get user context
         user_context = await orchestrator.get_user_context(request.user_id)
 
-        # Generate AI response
-        response_message = await ai_service.chat(
+        # Call AI with function calling enabled
+        ai_response = await ai_service.chat_with_functions(
             user_message=request.message,
             user_id=request.user_id,
             conversation_history=conversation_history,
@@ -139,37 +134,61 @@ async def chat(request: ChatRequest):
             }
         )
 
+        # Initialize response message
+        response_message = ai_response["message"]
+        metadata = {"user_context": user_context}
+
+        # If AI wants to call a function, execute it
+        if ai_response["requires_function"]:
+            function_name = ai_response["function_name"]
+            function_args = ai_response["function_args"]
+
+            logger.info(f"Executing function: {function_name} with args: {function_args}")
+
+            try:
+                # Execute the appropriate function
+                function_result = await execute_function(function_name, function_args)
+
+                # Generate natural language response based on function result
+                response_message = await ai_service.generate_function_response(
+                    user_message=request.message,
+                    function_name=function_name,
+                    function_result=function_result,
+                    conversation_history=conversation_history
+                )
+
+                # Add function result to metadata
+                metadata["function_executed"] = function_name
+                metadata["function_result"] = function_result
+
+            except Exception as e:
+                logger.error(f"Function execution error: {e}")
+                response_message = f"I tried to {function_name.replace('_', ' ')}, but encountered an error: {str(e)}"
+
         # Generate conversation ID if new
         conv_id = request.conversation_id or f"conv_{request.user_id}_{int(datetime.now().timestamp())}"
 
         # Save messages to database
-        await db.save_chat_message(
+        db.save_chat_message(
             user_id=request.user_id,
             role="user",
             content=request.message,
             conversation_id=conv_id
         )
-        await db.save_chat_message(
+        db.save_chat_message(
             user_id=request.user_id,
             role="assistant",
             content=response_message,
-            conversation_id=conv_id
+            conversation_id=conv_id,
+            metadata=metadata if ai_response["requires_function"] else None
         )
 
         return ChatResponse(
             conversation_id=conv_id,
             message=response_message,
-            metadata={"user_context": user_context}
+            metadata=metadata
         )
 
-    except AttributeError as e:
-        logger.error(f"AttributeError in chat: {e}")
-        logger.error(f"db object type: {type(db)}")
-        logger.error(f"db object dir: {dir(db)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Database attribute error: {str(e)}"
-        )
     except Exception as e:
         logger.error(f"Chat error ({type(e).__name__}): {e}")
         import traceback
@@ -178,6 +197,121 @@ async def chat(request: ChatRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Chat processing failed: {str(e)}"
         )
+
+
+async def execute_function(function_name: str, function_args: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Execute a function called by the AI
+
+    Args:
+        function_name: Name of the function to execute
+        function_args: Arguments for the function
+
+    Returns:
+        Function execution result
+    """
+    from datetime import datetime
+
+    user_id = function_args.get("user_id")
+
+    if function_name == "create_budget":
+        # Create budget via orchestrator
+        income = function_args.get("income")
+        month = function_args.get("month", datetime.now().strftime("%Y-%m"))
+        goals = function_args.get("goals", [])
+
+        result = await orchestrator.create_budget(
+            user_id=user_id,
+            month=month,
+            income=float(income),
+            goals=goals
+        )
+        return result
+
+    elif function_name == "log_expense":
+        # Log expense and update budget
+        description = function_args.get("description")
+        amount = function_args.get("amount")
+        merchant = function_args.get("merchant")
+        date = function_args.get("date", "today")
+
+        # Use orchestrator's log_expense_workflow
+        result = await orchestrator.log_expense_workflow(
+            user_id=user_id,
+            description=description,
+            amount=float(amount),
+            date=date
+        )
+
+        # Also save to expenses table
+        expense_data = {
+            "user_id": user_id,
+            "amount": str(amount),
+            "description": description,
+            "category_id": result.get("category_id"),
+            "date": datetime.now().isoformat(),
+            "ai_suggested_category": result.get("category_id"),
+            "confidence_score": str(result.get("confidence", 0))
+        }
+        db.save_expense(expense_data)
+
+        return result
+
+    elif function_name == "analyze_purchase":
+        # Analyze purchase decision
+        item = function_args.get("item")
+        amount = function_args.get("amount")
+
+        # Get user profile for analysis
+        user = db.get_user(user_id)
+        user_profile = {
+            "monthly_income": float(user.get("monthly_income", 0)) if user else 0,
+            "financial_goals": user.get("financial_goals", []) if user else [],
+            "risk_tolerance": user.get("risk_tolerance", "moderate") if user else "moderate"
+        }
+
+        # Use orchestrator to get purchase context
+        context = await orchestrator.analyze_purchase_decision(
+            user_id=user_id,
+            user_message=f"Should I buy {item}?",
+            item=item,
+            amount=float(amount)
+        )
+
+        # Get AI recommendation
+        recommendation = await ai_service.analyze_purchase(
+            user_message=f"Should I buy {item}?",
+            item=item,
+            amount=float(amount),
+            category=context["category"],
+            necessity_score=context["necessity_score"],
+            budget_context=context["budget_context"],
+            user_profile=user_profile
+        )
+
+        return recommendation
+
+    elif function_name == "get_budget_summary":
+        # Get budget summary
+        month = function_args.get("month", datetime.now().strftime("%Y-%m"))
+        result = await orchestrator.get_budget_summary(user_id, month)
+        return result
+
+    elif function_name == "get_budget_insights":
+        # Get AI-generated insights
+        month = function_args.get("month", datetime.now().strftime("%Y-%m"))
+        budget_summary = await orchestrator.get_budget_summary(user_id, month)
+
+        insights = await ai_service.generate_budget_insights(
+            budget_summary=budget_summary,
+            month=month,
+            spending_patterns=None
+        )
+
+        return {"insights": insights, "month": month}
+
+    else:
+        raise ValueError(f"Unknown function: {function_name}")
 
 
 # ============= Purchase Analysis =============

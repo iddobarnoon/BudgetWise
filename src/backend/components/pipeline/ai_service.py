@@ -16,7 +16,8 @@ from prompts import (
     format_expense_extraction_prompt,
     format_budget_insights_prompt,
     format_chat_prompt,
-    format_category_classification_prompt
+    format_category_classification_prompt,
+    OPENAI_FUNCTIONS
 )
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -281,6 +282,156 @@ class AIService:
             logger.error(f"Chat error: {e}")
             return "I apologize, but I'm having trouble processing your request right now. Please try again."
 
+    async def chat_with_functions(
+        self,
+        user_message: str,
+        user_id: str,
+        conversation_history: Optional[List[Dict[str, str]]] = None,
+        context: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Handle conversational chat with function calling support
+
+        Args:
+            user_message: User's message
+            user_id: User ID
+            conversation_history: Previous messages
+            context: Additional context (budget status, recent expenses)
+
+        Returns:
+            {
+                "requires_function": bool,
+                "function_name": str or None,
+                "function_args": dict or None,
+                "message": str (initial response or final response if no function needed)
+            }
+        """
+        from datetime import datetime
+
+        # Build messages array
+        messages = [{"role": "system", "content": FINANCIAL_ADVISOR_SYSTEM_PROMPT}]
+
+        # Add conversation history
+        if conversation_history:
+            messages.extend(conversation_history[-5:])  # Last 5 messages
+
+        # Add context to user message
+        context_info = ""
+        if context:
+            budget_status = context.get("budget_status", {})
+            if budget_status and float(budget_status.get("total_budget", 0)) > 0:
+                context_info = f"\n[Current budget: ${float(budget_status.get('total_budget', 0)):.2f}, Spent: ${float(budget_status.get('total_spent', 0)):.2f}]"
+
+        messages.append({
+            "role": "user",
+            "content": f"{user_message}{context_info}"
+        })
+
+        try:
+            # Call OpenAI with function calling
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                functions=OPENAI_FUNCTIONS,
+                function_call="auto",  # Let AI decide when to call functions
+                temperature=self.temperature,
+                max_tokens=self.max_tokens
+            )
+
+            message = response.choices[0].message
+
+            # Check if AI wants to call a function
+            if message.function_call:
+                function_name = message.function_call.name
+                function_args = json.loads(message.function_call.arguments)
+
+                # Add user_id to function args
+                function_args["user_id"] = user_id
+
+                # Add current month if not specified
+                if "month" in OPENAI_FUNCTIONS[0]["parameters"]["properties"] and "month" not in function_args:
+                    function_args["month"] = datetime.now().strftime("%Y-%m")
+
+                logger.info(f"AI wants to call function: {function_name} with args: {function_args}")
+
+                return {
+                    "requires_function": True,
+                    "function_name": function_name,
+                    "function_args": function_args,
+                    "message": message.content or f"Let me {function_name.replace('_', ' ')} for you..."
+                }
+            else:
+                # No function needed, return direct response
+                return {
+                    "requires_function": False,
+                    "function_name": None,
+                    "function_args": None,
+                    "message": message.content
+                }
+
+        except Exception as e:
+            logger.error(f"Chat with functions error: {e}")
+            return {
+                "requires_function": False,
+                "function_name": None,
+                "function_args": None,
+                "message": "I apologize, but I'm having trouble processing your request right now. Please try again."
+            }
+
+    async def generate_function_response(
+        self,
+        user_message: str,
+        function_name: str,
+        function_result: Dict[str, Any],
+        conversation_history: Optional[List[Dict[str, str]]] = None
+    ) -> str:
+        """
+        Generate a natural language response after executing a function
+
+        Args:
+            user_message: Original user message
+            function_name: Name of function that was called
+            function_result: Result from the function execution
+            conversation_history: Previous messages
+
+        Returns:
+            Natural language response explaining what was done
+        """
+        # Build context for the AI
+        messages = [{"role": "system", "content": FINANCIAL_ADVISOR_SYSTEM_PROMPT}]
+
+        if conversation_history:
+            messages.extend(conversation_history[-3:])
+
+        messages.append({"role": "user", "content": user_message})
+        messages.append({
+            "role": "function",
+            "name": function_name,
+            "content": json.dumps(function_result)
+        })
+
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.7,
+                max_tokens=500
+            )
+
+            return response.choices[0].message.content
+
+        except Exception as e:
+            logger.error(f"Error generating function response: {e}")
+            # Fallback response
+            if function_name == "create_budget":
+                return f"I've created your budget successfully! Total budget: ${function_result.get('total_income', 0):.2f}"
+            elif function_name == "log_expense":
+                return f"Got it! I've logged ${function_result.get('amount', 0):.2f} for {function_result.get('description', 'your expense')}."
+            elif function_name == "analyze_purchase":
+                return json.dumps(function_result, indent=2)
+            else:
+                return "Action completed successfully."
+
     async def classify_category(
         self,
         merchant: str,
@@ -369,9 +520,9 @@ class AIService:
 
     def _fallback_budget_insights(self, budget_summary: Dict[str, Any]) -> str:
         """Fallback budget insights"""
-        total_budget = budget_summary.get("total_budget", 0)
-        total_spent = budget_summary.get("total_spent", 0)
-        total_remaining = budget_summary.get("total_remaining", 0)
+        total_budget = float(budget_summary.get("total_budget", 0))
+        total_spent = float(budget_summary.get("total_spent", 0))
+        total_remaining = float(budget_summary.get("total_remaining", 0))
         percent_spent = (total_spent / total_budget * 100) if total_budget > 0 else 0
 
         return f"""
